@@ -49,6 +49,8 @@ Correctness is covered by tests, including the cases that are easy to get wrong:
 cargo test
 ```
 
+Tests and the benchmark build without Reth: the storage layer is independent of it, so a clone runs in seconds rather than waiting on the full node tree.
+
 ## Measured query latency
 
 `get_balance` is an indexed point lookup against the materialized table on a prepared statement, so reads do not touch the event log.
@@ -58,10 +60,10 @@ Benchmark: 50,000 addresses, 550,000 transfer events, 66 MB database, 20,000 ran
 | | latency |
 |---|---|
 | mean | 2.2 µs |
-| p50 | 2.1 µs |
-| p95 | 2.4 µs |
-| p99 | 2.7 µs |
-| max | 11.3 µs |
+| p50 | 2.2 µs |
+| p95 | 2.5 µs |
+| p99 | 2.8 µs |
+| max | 7.1 µs |
 
 Measured on an Apple M4, 32 GB RAM, rustc 1.96.0, `--release`. Reproduce with:
 
@@ -73,10 +75,11 @@ This measures the **query path only**. Indexing throughput is bounded by Reth's 
 
 ## Running
 
-Requires a synced Reth node; the ExEx installs into it.
+Requires a synced Reth node; the ExEx installs into it. The Reth dependency
+is behind the `exex` feature, so building the node binary is opt-in:
 
 ```bash
-cargo build --release
+cargo build --release --features exex
 
 # Database path is configurable; defaults to ./indexer.db
 INDEXER_DB=/var/lib/usdc/indexer.db \
@@ -86,6 +89,16 @@ INDEXER_DB=/var/lib/usdc/indexer.db \
 ```
 
 Standard Reth CLI flags all apply, since the binary wraps `reth::cli::Cli`.
+
+> **Note on the Reth pin.** This is pinned to Reth `v1.9.0` (February 2026),
+> which is the version it was written and run against. Building with
+> `--features exex` currently fails against today's crates.io, because Reth
+> v1.9.0 requires `alloy-evm ^0.23`, and `alloy-evm 0.23.3` no longer compiles
+> against the `alloy-rpc-types-eth` version that same tree resolves. That is
+> upstream version drift, not a change in this code. Reth is on v2.x now;
+> moving the pin forward would mean reworking the ExEx integration against a
+> changed API. The storage layer, reorg logic, and tests are unaffected and
+> build on their own.
 
 ## Scope and limitations
 
